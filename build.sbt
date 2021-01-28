@@ -21,10 +21,17 @@ lazy val advxml: Project = project
   .in(file("."))
   .settings(allSettings)
   .settings(noPublishSettings)
-  .aggregate(core)
+  .aggregate(core, generic)
 
 lazy val core: Project =
   buildModule("core", toPublish = true)
+
+lazy val generic: Project =
+  buildModule("generic", toPublish = true)
+    .dependsOn(core)
+    .settings {
+      libraryDependencies ++= Dependencies.generic
+    }
 
 //=============================== MODULES UTILS ===============================
 def buildModule(path: String, toPublish: Boolean = false): Project = {

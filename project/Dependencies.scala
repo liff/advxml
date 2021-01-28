@@ -19,4 +19,9 @@ object Dependencies {
     "org.scalatest" %% "scalatest" % "3.2.3" % Test cross CrossVersion.binary,
     "org.scalacheck" %% "scalacheck" % "1.15.2" % Test cross CrossVersion.binary
   )
+
+  lazy val generic: Seq[ModuleID] = Seq(
+    "com.propensive" %% "magnolia" % "0.17.0",
+    "org.scala-lang" % "scala-reflect" % "2.12.8"
+  )
 }
