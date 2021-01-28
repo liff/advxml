@@ -126,7 +126,7 @@ private[syntax] trait ConverterSyntax {
 
     /** Syntactic sugar to run an implicit [[XmlDecoder]] with NodeSeq instance as input.
       */
-    def decode[B](implicit c: XmlDecoder[B]): ValidatedNelEx[B] = c.run(ns)
+    def decode[B](implicit decoder: XmlDecoder[B]): ValidatedNelEx[B] = decoder.run(ns)
   }
 }
 

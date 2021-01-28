@@ -64,5 +64,5 @@ package object data {
   @implicitNotFound(
     """Missing implicit XmlDecoder instance to covert ${T} into ValidatedNelEx[NodeSeq]."""
   )
-  type XmlEncoder[T] = ValidatedConverter[T, NodeSeq]
+  type XmlEncoder[-T] = ValidatedConverter[T, NodeSeq]
 }
