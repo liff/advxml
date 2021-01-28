@@ -62,6 +62,7 @@ class ConvertersInstancesTestForSimpleValue extends AnyFunSuite with ConvertersA
     XmlContentZoom.attrFromBindedZoom($(<foo bar="1"/>), "bar"),
     Valid("1")
   )
+
   Converter[XmlContentZoomRunner, Try[String]].test(
     XmlContentZoom.attrFromBindedZoom($(<foo bar="1"/>), "bar"),
     Success("1")
@@ -139,7 +140,7 @@ private[instances] sealed trait ConvertersAssertsUtils { $this: AnyFunSuite =>
           s".apply('$in') should be '$expectedOut'"
       ) {
         
-        assert(converter(in) == expectedOut)
+        assert(converter.run(in) == expectedOut)
       }
     }
   }

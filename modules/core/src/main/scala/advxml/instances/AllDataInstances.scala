@@ -49,18 +49,20 @@ private trait AggregatedExceptionInstances {
 private[instances] trait AllConverterInstances
     extends ConverterBasicInstances
     with ConverterForXmlContentZoomRunnerInstances
-    with IdConverterInstances
     with ConverterUtilsInstances
-    with ConverterNaturalTransformationInstances
+    with ConverterNaturalTransformationInstances {
+
+  implicit def identityConverter[A]: Converter[A, A] = Converter.id[A]
+
+  implicit def identityConverterApplicative[F[_]: Applicative, A: * =:!= F[A]]: Converter[A, F[A]] =
+    Converter.idF[F, A]
+}
 
 private sealed trait ConverterBasicInstances {
 
   //=============================== Node ===============================
   implicit val nodeToElemConverter: Node As Elem =
     Converter.of(XmlUtils.nodeToElem)
-
-  implicit val textToSimpleValue: Text As SimpleValue =
-    Converter.of(txt => SimpleValue(txt.text))
 
   //=============================== Throwable ===============================
   implicit val converterThrowableNelToThrowableEx: ThrowableNel As Throwable =
@@ -70,13 +72,15 @@ private sealed trait ConverterBasicInstances {
     Converter.of(ThrowableNel.fromThrowable)
 
   //=============================== Value ===============================
-  implicit val convertStringToValue: String As SimpleValue =
-    Converter.of(SimpleValue(_))
-
-  implicit val convertValueToString: SimpleValue As String =
+  implicit val convertSimpleValueToString: SimpleValue As String =
     Converter.of(a => a.get)
 
+  implicit val convertSimpleValueToText: SimpleValue As Text =
+    convertSimpleValueToString.map(Text(_))
+
   // format: off
+  implicit val convertStringToValue     : String     As SimpleValue = Converter.of(SimpleValue(_))
+  implicit val convertTextToValue       : Text       As SimpleValue = Converter.of(txt => SimpleValue(txt.text))
   implicit val convertBigIntToValue     : BigInt     As SimpleValue = toValue
   implicit val convertBigDecimalToValue : BigDecimal As SimpleValue = toValue
   implicit val convertNyteToValue       : Byte       As SimpleValue = toValue
@@ -87,6 +91,7 @@ private sealed trait ConverterBasicInstances {
   implicit val convertFloatToValue      : Float      As SimpleValue = toValue
   implicit val convertDoubleToValue     : Double     As SimpleValue = toValue
 
+  implicit def convertValueToFText      [F[_] : AppExOrEu] : Value As F[Text      ] = fromBox(a => Text(a))
   implicit def convertValueToFString    [F[_] : AppExOrEu] : Value As F[String    ] = fromBox(a => a)
   implicit def convertValueToFBigInt    [F[_] : AppExOrEu] : Value As F[BigInt    ] = fromBox(BigInt(_))
   implicit def convertValueToFBigDecimal[F[_] : AppExOrEu] : Value As F[BigDecimal] = fromBox(BigDecimal(_))
@@ -121,44 +126,21 @@ private sealed trait ConverterUtilsInstances {
 
   import cats.syntax.all._
 
-  case class DerivedConverter[A, B, C](a: Converter[A, B], b: Converter[B, C])
-
-  //  implicit def deriveTextToF_fromValueToF[F[_], T: * =:!= Text](implicit
-  //    c: SimpleValue As F[T]
-  //  ): Text As F[T] =
-  //    c.local(t => SimpleValue(t.data))
-
-  //  implicit def deriveTAsText_fromTAsValue[T: * =:!= Text](implicit
-  //    c: T As SimpleValue
-  //  ): T As Text =
-  //    c.map(v => Text(v.get))
-
-  //  implicit def deriveTAsText_fromTAsValidatedValue[F[_]: AppExOrEu, T: * =:!= Text](implicit
-  //    c: T As ValidatedValue
-  //  ): T As F[Text] =
-  //    c.map(v => v.extract[F].map(Text(_)))
-
-  implicit def andThenConverter[A, B: * =:!= A, C: * =:!= B](implicit
+  implicit def andThenConverter[A, B <: Value, C](implicit
     c1: Converter[A, B],
     c2: Converter[B, C]
-  ): DerivedConverter[A, B, C] =
-    DerivedConverter(c1, c2)
+  ): Converter[A, C] =
+    c1.andThen(c2)
 
-  implicit def converterFlatMapAs[F[_]: FlatMap, A, B](implicit c: Converter[A, F[B]]): Converter[F[A], F[B]] =
+  implicit def converterFlatMapAs[F[_]: FlatMap, A, B: * =:!= A](implicit
+    c: Converter[A, F[B]]
+  ): Converter[F[A], F[B]] =
     Converter.of(fa => fa.flatMap(a => c.run(a)))
 
   implicit def converterAndThenAs[E, A, B](implicit
     c: Converter[A, Validated[E, B]]
   ): Converter[Validated[E, A], Validated[E, B]] =
     Converter.of(fa => fa.andThen(a => c.run(a)))
-}
-
-private sealed trait IdConverterInstances {
-
-  implicit def identityConverter[A]: Converter[A, A] = Converter.id[A]
-
-  implicit def identityConverterApplicative[F[_]: Applicative, A: * =:!= F[A]]: Converter[A, F[A]] =
-    Converter.idF[F, A]
 }
 
 private sealed trait ConverterNaturalTransformationInstances {
