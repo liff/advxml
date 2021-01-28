@@ -11,4 +11,7 @@ object ThrowableNel {
     case ex: AggregatedException => ex.exceptions
     case ex                      => NonEmptyList.one(ex)
   }
+
+  def fromEitherNelExToEitherEx[T](ex: EitherNelEx[T]): EitherEx[T] =
+    ex.swap.map(toThrowable).swap
 }

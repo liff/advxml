@@ -6,7 +6,6 @@ import advxml.core.transform.XmlContentZoomRunner
 import advxml.core.utils.XmlUtils
 import cats.{~>, Applicative, FlatMap, Semigroup}
 import cats.data.{NonEmptyList, Validated}
-import advxml.core.data.ValidationRule
 
 import scala.util.matching.Regex
 import scala.util.Try
@@ -48,49 +47,20 @@ private trait AggregatedExceptionInstances {
 
 //========================= CONVERTERS =========================
 private[instances] trait AllConverterInstances
-    extends ConverterLowerPriorityImplicits1
-    with ConverterLowerPriorityImplicits2
-    with ConverterNaturalTransformationInstances {
+    extends ConverterBasicInstances
+    with ConverterForXmlContentZoomRunnerInstances
+    with IdConverterInstances
+    with ConverterUtilsInstances
+    with ConverterNaturalTransformationInstances
 
-  implicit def identityConverter[A]: Converter[A, A] = Converter.id[A]
-
-  implicit def identityConverterApplicative[F[_]: Applicative, A: * =:!= F[A]]: Converter[A, F[A]] =
-    Converter.idF[F, A]
-}
-
-private sealed trait ConverterLowerPriorityImplicits1 {
-
-  import cats.syntax.all._
-
-  implicit def deriveTextToF_fromValueToF[F[_], T: * =:!= Text](implicit
-    c: SimpleValue As F[T]
-  ): Text As F[T] =
-    c.local(t => SimpleValue(t.data))
-
-  implicit def deriveTAsText_fromTAsValue[T: * =:!= Text](implicit
-    c: T As SimpleValue
-  ): T As Text =
-    c.map(v => Text(v.get))
-
-  implicit def deriveTAsText_fromTAsValidatedValue[F[_]: AppExOrEu, T: * =:!= Text](implicit
-    c: T As ValidatedValue
-  ): T As F[Text] =
-    c.map(v => v.extract[F].map(Text(_)))
-
-  implicit def converterFlatMapAs[F[_]: FlatMap, A, B](implicit c: Converter[A, F[B]]): Converter[F[A], F[B]] =
-    Converter.of(fa => fa.flatMap(a => c.run(a)))
-
-  implicit def converterAndThenAs[E, A, B](implicit
-    c: Converter[A, Validated[E, B]]
-  ): Converter[Validated[E, A], Validated[E, B]] =
-    Converter.of(fa => fa.andThen(a => c.run(a)))
-}
-
-private sealed trait ConverterLowerPriorityImplicits2 {
+private sealed trait ConverterBasicInstances {
 
   //=============================== Node ===============================
   implicit val nodeToElemConverter: Node As Elem =
     Converter.of(XmlUtils.nodeToElem)
+
+  implicit val textToSimpleValue: Text As SimpleValue =
+    Converter.of(txt => SimpleValue(txt.text))
 
   //=============================== Throwable ===============================
   implicit val converterThrowableNelToThrowableEx: ThrowableNel As Throwable =
@@ -105,16 +75,6 @@ private sealed trait ConverterLowerPriorityImplicits2 {
 
   implicit val convertValueToString: SimpleValue As String =
     Converter.of(a => a.get)
-
-  implicit def converterXmlContentZoomRunnerForValidated[A](implicit
-    c: Converter[ValidatedNelEx[String], ValidatedNelEx[A]]
-  ): Converter[XmlContentZoomRunner, ValidatedNelEx[A]] =
-    Converter.of(r => c.run(r.validated))
-
-  implicit def converterXmlContentZoomRunnerForAppExOrEu[F[_]: AppExOrEu: FlatMap, A](implicit
-    c: Converter[F[String], F[A]]
-  ): Converter[XmlContentZoomRunner, F[A]] =
-    Converter.of(r => c.run(r.extract[F]))
 
   // format: off
   implicit val convertBigIntToValue     : BigInt     As SimpleValue = toValue
@@ -143,6 +103,62 @@ private sealed trait ConverterLowerPriorityImplicits2 {
 
   private def fromBox[F[_]: AppExOrEu, O](f: String => O): Converter[Value, F[O]] =
     Converter.of { b => AppExOrEu.fromTry(b.extract[Try].flatMap(v => Try(f(v)))) }
+}
+
+private sealed trait ConverterForXmlContentZoomRunnerInstances {
+  implicit def converterXmlContentZoomRunnerForValidated[A](implicit
+    c: Converter[ValidatedNelEx[String], ValidatedNelEx[A]]
+  ): Converter[XmlContentZoomRunner, ValidatedNelEx[A]] =
+    Converter.of(r => c.run(r.validated))
+
+  implicit def converterXmlContentZoomRunnerForAppExOrEu[F[_]: AppExOrEu: FlatMap, A](implicit
+    c: Converter[F[String], F[A]]
+  ): Converter[XmlContentZoomRunner, F[A]] =
+    Converter.of(r => c.run(r.extract[F]))
+}
+
+private sealed trait ConverterUtilsInstances {
+
+  import cats.syntax.all._
+
+  case class DerivedConverter[A, B, C](a: Converter[A, B], b: Converter[B, C])
+
+  //  implicit def deriveTextToF_fromValueToF[F[_], T: * =:!= Text](implicit
+  //    c: SimpleValue As F[T]
+  //  ): Text As F[T] =
+  //    c.local(t => SimpleValue(t.data))
+
+  //  implicit def deriveTAsText_fromTAsValue[T: * =:!= Text](implicit
+  //    c: T As SimpleValue
+  //  ): T As Text =
+  //    c.map(v => Text(v.get))
+
+  //  implicit def deriveTAsText_fromTAsValidatedValue[F[_]: AppExOrEu, T: * =:!= Text](implicit
+  //    c: T As ValidatedValue
+  //  ): T As F[Text] =
+  //    c.map(v => v.extract[F].map(Text(_)))
+
+  implicit def andThenConverter[A, B: * =:!= A, C: * =:!= B](implicit
+    c1: Converter[A, B],
+    c2: Converter[B, C]
+  ): DerivedConverter[A, B, C] =
+    DerivedConverter(c1, c2)
+
+  implicit def converterFlatMapAs[F[_]: FlatMap, A, B](implicit c: Converter[A, F[B]]): Converter[F[A], F[B]] =
+    Converter.of(fa => fa.flatMap(a => c.run(a)))
+
+  implicit def converterAndThenAs[E, A, B](implicit
+    c: Converter[A, Validated[E, B]]
+  ): Converter[Validated[E, A], Validated[E, B]] =
+    Converter.of(fa => fa.andThen(a => c.run(a)))
+}
+
+private sealed trait IdConverterInstances {
+
+  implicit def identityConverter[A]: Converter[A, A] = Converter.id[A]
+
+  implicit def identityConverterApplicative[F[_]: Applicative, A: * =:!= F[A]]: Converter[A, F[A]] =
+    Converter.idF[F, A]
 }
 
 private sealed trait ConverterNaturalTransformationInstances {
