@@ -12,7 +12,11 @@ object MagnoliaDecoder {
 
   import advxml.core.data._
   import advxml.implicits._
-  import cats.implicits._
+  import cats.syntax.all._
+
+//  implicit def alwaysPureConverter[F[_]: Applicative, A, B: * =:!= A](implicit
+//    c: A As B
+//  ): A As F[B] = c.map(b => Applicative[F].pure(b))
 
   def combine[T](ctx: CaseClass[XmlDecoder, T])(conf: Configuration)(implicit ct: ClassTag[T]): XmlDecoder[T] =
     XmlDecoder.of { ns: NodeSeq =>

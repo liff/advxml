@@ -9,7 +9,7 @@ import cats.data.{NonEmptyList, Validated}
 
 import scala.util.matching.Regex
 import scala.util.Try
-import scala.xml.{Elem, Node, Text}
+import scala.xml.{Elem, Node, NodeSeq, Text}
 
 private[instances] trait AllDataInstances
     extends AllValueInstances
@@ -64,6 +64,9 @@ private sealed trait ConverterBasicInstances {
   implicit val nodeToElemConverter: Node As Elem =
     Converter.of(XmlUtils.nodeToElem)
 
+  implicit val nodeSeqToTextConverter: NodeSeq As Text =
+    Converter.of(ns => Text(ns.text))
+
   //=============================== Throwable ===============================
   implicit val converterThrowableNelToThrowableEx: ThrowableNel As Throwable =
     Converter.of(ThrowableNel.toThrowable)
@@ -80,7 +83,7 @@ private sealed trait ConverterBasicInstances {
 
   // format: off
   implicit val convertStringToValue     : String     As SimpleValue = Converter.of(SimpleValue(_))
-  implicit val convertTextToValue       : Text       As SimpleValue = Converter.of(txt => SimpleValue(txt.text))
+  implicit val convertTextToValue       : NodeSeq    As SimpleValue = Converter.of(txt => SimpleValue(txt.text))
   implicit val convertBigIntToValue     : BigInt     As SimpleValue = toValue
   implicit val convertBigDecimalToValue : BigDecimal As SimpleValue = toValue
   implicit val convertNyteToValue       : Byte       As SimpleValue = toValue
