@@ -3,6 +3,7 @@ package advxml.core.data
 import cats.{Applicative, Id}
 import cats.data.Kleisli
 
+//import scala.annotation.implicitNotFound
 import scala.xml.NodeSeq
 
 /** Advxml
@@ -10,6 +11,25 @@ import scala.xml.NodeSeq
   *
   * @author geirolad
   */
+//
+///** Represents a function `-A => +B` to simplify method and class signatures.
+//  * This alias represent a converter to transform `A` into `B`.
+//  *
+//  * @tparam A Contravariant input object type
+//  * @tparam B Covariant output object type
+//  */
+//@implicitNotFound("""Missing implicit Converter instance to covert ${A} into ${B}""")
+//class Converter[-A, +B] private[data] (f: A => B) {
+//
+//  def run(a: A): B = f(a)
+//
+//  def map[C](f: B => C): Converter[A, C] =
+//    Converter.of(a => f(run(a)))
+//
+//  def andThen[C](c2: Converter[B, C]): Converter[A, C] =
+//    Converter.of(a => c2.run(run(a)))
+//}
+
 object Converter {
 
   /** Create an instance of [[Converter]]
@@ -19,6 +39,7 @@ object Converter {
     * @return Converter instance
     */
   def of[A, B](f: A => B): Converter[A, B] = Kleisli[Id, A, B](f)
+//  def of[A, B](f: A => B): Converter[A, B] = new Converter[A, B](f)
 
   /** Create an always pure converter that return the input instance.
     * @tparam A input and output type
@@ -46,7 +67,7 @@ object Converter {
     * @tparam B inner output type
     * @return Constant [[Converter]] instance
     */
-  def constF[F[_]: Applicative, A, B](b: B): Converter[A, F[B]] = Converter.of(_ => Applicative[F].pure(b))
+  def constF[F[_]: Applicative, B](b: B): Converter[Any, F[B]] = Converter.of(_ => Applicative[F].pure(b))
 
   /** Apply conversion using implicit [[Converter]] instance.
     * This method catch a [[Converter]] instance in the scope that conforms with types `F`, `A` and `B` and then invoke
@@ -73,7 +94,7 @@ private[core] sealed abstract class FixedLeftConverterOps[F[_]: Applicative, A, 
   type Wrapper[_] = F[_]
   def of[B](f: A => F[B]): CR[B] = Converter.of[A, F[B]](f).asInstanceOf[CR[B]]
   def id: CR[A] = Converter.idF[F, A].asInstanceOf[CR[A]]
-  def const[B](b: B): CR[B] = Converter.constF[F, A, B](b).asInstanceOf[CR[B]]
+  def const[B](b: B): CR[B] = Converter.constF[F, B](b).asInstanceOf[CR[B]]
   def apply[B](implicit F: Converter[A, F[B]]): CR[B] = Converter[A, F[B]].asInstanceOf[CR[B]]
 }
 
@@ -81,7 +102,7 @@ private[core] sealed abstract class FixedRightConverterOps[F[_]: Applicative, B,
   type Wrapper[_] = F[_]
   def of[A](f: A => F[B]): CL[A] = Converter.of[A, F[B]](f).asInstanceOf[CL[A]]
   def id: CL[B] = Converter.idF[F, B].asInstanceOf[CL[B]]
-  def const[A](b: B): CL[A] = Converter.constF[F, A, B](b).asInstanceOf[CL[A]]
+  def const[A](b: B): CL[A] = Converter.constF[F, B](b).asInstanceOf[CL[A]]
   def apply[A](implicit F: Converter[A, F[B]]): CL[A] = Converter[A, F[B]].asInstanceOf[CL[A]]
 }
 

@@ -141,7 +141,7 @@ private[syntax] trait AttributeSyntax {
   implicit class AttributeOps(key: Key) {
 
     def :=[T](v: T)(implicit c: T As SimpleValue): AttributeData =
-      AttributeData(key, c(v))
+      AttributeData(key, c.run(v))
 
     //********* KeyValuePredicate *********
     import cats.syntax.order._

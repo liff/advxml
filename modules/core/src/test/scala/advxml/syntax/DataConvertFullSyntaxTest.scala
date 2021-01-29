@@ -1,6 +1,7 @@
 package advxml.syntax
 
 import advxml.core.data._
+import cats.data.Validated.Valid
 import org.scalatest.funsuite.AnyFunSuite
 
 import scala.xml.Elem
@@ -14,7 +15,6 @@ class DataConvertFullSyntaxTest extends AnyFunSuite {
 
   import advxml.implicits._
   import advxml.testUtils.ScalacticXmlEquality._
-  import cats.data.Validated._
   import cats.syntax.all._
 
   case class Car(brand: String, model: String)
@@ -81,7 +81,7 @@ class DataConvertFullSyntaxTest extends AnyFunSuite {
     assert(
       res ===
         <Person Name="Matteo" Surname="Bianchi" Age="23">
-        <Note>Matteo note</Note> 
+        <Note>Matteo note</Note>
         <Cars>
           <Car Brand="Fiat" Model="500"/>
         </Cars>

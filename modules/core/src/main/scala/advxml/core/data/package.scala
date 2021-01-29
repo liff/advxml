@@ -1,7 +1,7 @@
 package advxml.core
 
-import cats.Id
 import cats.data._
+import cats.Id
 
 import scala.annotation.implicitNotFound
 import scala.xml.NodeSeq
@@ -43,7 +43,8 @@ package object data {
     * Because the conversion can fail the output is wrapped into `Option` in order to handle the empty case.
     *
     * @tparam A Contravariant input object type
-    * @tparam B Output object type
+    * @tparam B Output object typeValida
+    * tedSyntaxTest
     */
   @implicitNotFound(
     """Missing implicit OptionConverter instance to covert ${A} into Option[${B}]."""
