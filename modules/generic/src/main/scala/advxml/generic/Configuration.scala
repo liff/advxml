@@ -1,13 +1,14 @@
 package advxml.generic
 
-//sealed trait ManualTypeSelector2
-//case class Attr[T](ptype: T) extends ManualTypeSelector2
-//case class Node[T](ptype: T) extends ManualTypeSelector2
-//case class Text[T](ptype: T) extends ManualTypeSelector2
-
 sealed trait ManualTypeSelector
-final class node extends scala.annotation.StaticAnnotation with ManualTypeSelector
-final class attr extends scala.annotation.StaticAnnotation with ManualTypeSelector
+object ManualTypeSelector {
+  case object Attr extends ManualTypeSelector
+  case object Node extends ManualTypeSelector
+//  case object Text extends ManualTypeSelector
+}
+
+case class node() extends scala.annotation.StaticAnnotation
+case class attr() extends scala.annotation.StaticAnnotation
 //final class textOfNode extends scala.annotation.StaticAnnotation with ManualTypeSelector
 
 case class Configuration(

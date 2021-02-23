@@ -3,10 +3,12 @@ package advxml.generic.decoder
 import advxml.generic.{attr, node, Configuration, ManualTypeSelector}
 import cats.data.{NonEmptyList, Validated}
 import cats.data.Validated.{Invalid, Valid}
+import cats.Applicative
 import magnolia.{CaseClass, Param, SealedTrait}
 
 import scala.reflect.{classTag, ClassTag}
 import scala.xml.{NodeSeq, Text}
+import advxml.core.=:!=
 
 object MagnoliaDecoder {
 
@@ -14,18 +16,20 @@ object MagnoliaDecoder {
   import advxml.implicits._
   import cats.syntax.all._
 
-//  implicit def alwaysPureConverter[F[_]: Applicative, A, B: * =:!= A](implicit
-//    c: A As B
-//  ): A As F[B] = c.map(b => Applicative[F].pure(b))
+  import reflect.runtime.universe._
 
-  def combine[T](ctx: CaseClass[XmlDecoder, T])(conf: Configuration)(implicit ct: ClassTag[T]): XmlDecoder[T] =
+  implicit def alwaysPureConverter[F[_]: Applicative, A, B: * =:!= A](implicit
+    c: A As B
+  ): A As F[B] = c.map(b => Applicative[F].pure(b))
+
+  def combine[T: ClassTag: TypeTag](ctx: CaseClass[XmlDecoder, T])(conf: Configuration): XmlDecoder[T] =
     XmlDecoder.of { ns: NodeSeq =>
       val list = ctx.parameters
         .map((p: Param[XmlDecoder, T]) => {
 
           val target: ValidatedEx[NodeSeq] = getTargetInfo(ns, ctx, p).andThen {
-            case _: node => $(ns).down(p.label).run[ValidatedEx]
-            case _: attr =>
+            case ManualTypeSelector.Attr => $(ns).down(p.label).run[ValidatedEx]
+            case ManualTypeSelector.Node =>
               ns
                 .attr(p.label)
                 .as[ValidatedEx[String]]
@@ -54,35 +58,34 @@ object MagnoliaDecoder {
     }
   }
 
-  private def getTargetInfo[T](
+  private def getTargetInfo[T: TypeTag](
     ns: NodeSeq,
     ctx: CaseClass[XmlDecoder, T],
     p: Param[XmlDecoder, T]
   ): ValidatedEx[ManualTypeSelector] =
-    (getPAnn[attr](p), getPAnn[node](p)) match {
+    (getPAnn[attr, T](p), getPAnn[node, T](p)) match {
+      case (Some(_), Some(_)) =>
+        fail("Ambiguous annotations, field annotated with both @attr and @node.")
+      case (Some(_), None) =>
+        ok(ManualTypeSelector.Attr)
+      case (None, Some(_)) =>
+        ok(ManualTypeSelector.Node)
       case (None, None) =>
         val attrExists: Boolean = ns.exists(hasAttrs(Key(p.label)))
         val nodeExists: Boolean = ns.exists(hasImmediateChild(p.label))
         (attrExists, nodeExists) match {
           case (true, true) =>
             fail(
-              s"Ambiguous request, there are both one attribute and one node with the name ${p.label}, " +
+              s"Ambiguous request, there are both attributes and nodes with the name ${p.label}, " +
               s"please use @attr or @node annotation to specify the expected behavior."
             )
           case (false, false) =>
             fail(s"Missing attribute or node with label '${p.label}' for class ${ctx.typeName.short}")
           case (true, false) =>
-            ok(new attr)
+            ok(ManualTypeSelector.Attr)
           case (false, true) =>
-            ok(new node)
+            ok(ManualTypeSelector.Node)
         }
-
-      case (Some(_), Some(_)) =>
-        fail("Ambiguous annotations, field annotated with both @attr and @node.")
-      case (Some(attrA), None) =>
-        ok(attrA)
-      case (None, Some(nodeA)) =>
-        ok(nodeA)
     }
 
   private def ok[T <: ManualTypeSelector](mts: T): Valid[T] =
@@ -91,8 +94,24 @@ object MagnoliaDecoder {
   private def fail[T](message: String): Invalid[RuntimeException] =
     Invalid(new RuntimeException(message))
 
-  private def getPAnn[A: ClassTag](p: Param[XmlDecoder, _]): Option[A] =
-    p.typeAnnotations.find(pt => classTag[A].runtimeClass.isInstance(pt)).map(_.asInstanceOf[A])
+  private def getPAnn[A: ClassTag, T: TypeTag](p: Param[XmlDecoder, T]): Option[A] = {
+
+    Console.println(
+      typeOf[T].typeSymbol.annotations
+    )
+
+//    val p1 = classTag[T].runtimeClass
+//      .getDeclaredField(p.label)
+//      .getDeclaredAnnotations
+//      .find((a: Annotation) => a.annotationType.equals(classTag[A].runtimeClass))
+//      .map(_.asInstanceOf[A])
+
+//    val p1 = p.typeAnnotations.find(pt => classTag[A].runtimeClass.isInstance(pt)).map(_.asInstanceOf[A])
+    Console.println(p.label + " res = " + None)
+//    p1
+
+    None
+  }
 
   private def pTypeIs[T: ClassTag](p: Param[XmlDecoder, T], clazz: Class[_]): Boolean =
     clazz.isAssignableFrom(

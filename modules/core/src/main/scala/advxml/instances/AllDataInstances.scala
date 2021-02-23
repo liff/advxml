@@ -52,7 +52,7 @@ private[instances] trait AllConverterInstances
     with ConverterUtilsInstances
     with ConverterNaturalTransformationInstances {
 
-  implicit def identityConverter[A]: Converter[A, A] = Converter.id[A]
+//  implicit def identityConverter[A]: Converter[A, A] = Converter.id[A]
 
   implicit def identityConverterApplicative[F[_]: Applicative, A: * =:!= F[A]]: Converter[A, F[A]] =
     Converter.idF[F, A]
@@ -129,13 +129,13 @@ private sealed trait ConverterUtilsInstances {
 
   import cats.syntax.all._
 
-  implicit def andThenConverter[A, B <: Value, C](implicit
+  implicit def andThenConverter[A, B <: Value: * =:!= A, C](implicit
     c1: Converter[A, B],
     c2: Converter[B, C]
   ): Converter[A, C] =
     c1.andThen(c2)
 
-  implicit def converterFlatMapAs[F[_]: FlatMap, A, B: * =:!= A](implicit
+  implicit def converterFlatMapAs[F[_]: FlatMap, A, B](implicit
     c: Converter[A, F[B]]
   ): Converter[F[A], F[B]] =
     Converter.of(fa => fa.flatMap(a => c.run(a)))
